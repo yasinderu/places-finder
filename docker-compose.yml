@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  gmaps_api:
+    build:
+      context: ./gmaps_api
+      dockerfile: Dockerfile
+    container_name: gmaps_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: ${OLLAMA_HOST}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
+      QEURIES_PER_SECOND: ${QEURIES_PER_SECOND}
+      QEURIES_PER_MINUTE: ${QEURIES_PER_MINUTE}
+    restart: unless-stopped
+    volumes:
+      - ./gmaps_api:/app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - API_ENDPOINT=${API_ENDPOINT}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  ollama_data:
